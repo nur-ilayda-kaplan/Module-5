@@ -1,0 +1,23 @@
+{
+  "name": "wdio-bdd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "wdio run wdio.conf.js",
+    "test:all": "wdio run wdio.conf.js",
+    "test:chrome": "wdio run wdio.conf.js --browserName=chrome",
+    "test:firefox": "wdio run wdio.conf.js --browserName=firefox",
+    "test:safari": "wdio run wdio.conf.js --browserName=safari"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@wdio/cucumber-framework": "^9.21.0",
+    "@wdio/local-runner": "^9.21.0",
+    "@wdio/spec-reporter": "^9.20.0",
+    "chai": "^5.1.1"
+  }
+}
