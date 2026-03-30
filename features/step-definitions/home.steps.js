@@ -1,4 +1,5 @@
 const { Given, Then, When } = require("@wdio/cucumber-framework");
+const { assert, expect: chaiExpect } = require("../support/chai");
 const homePage = require("../../pages/home.page");
 
 const scenarioState = {
@@ -48,8 +49,8 @@ Then(
       name.toLowerCase().includes(searchTextLowerCase),
     );
 
-    expect(visibleProductNames.length).toBeGreaterThan(0);
-    expect(allResultsMatch).toBe(true);
+    chaiExpect(visibleProductNames).to.have.length.greaterThan(0);
+    chaiExpect(allResultsMatch).to.equal(true);
   },
 );
 
@@ -68,10 +69,17 @@ Then("only products from the selected category should be shown", async () => {
     scenarioState.selectedCategoryDataTest,
   );
 
-  expect(categoryIsApplied).toBe(true);
+  assert.isTrue(
+    categoryIsApplied,
+    "The selected category filter should stay checked",
+  );
 
   const productNames = await homePage.getVisibleProductNames();
-  expect(productNames.length).toBeGreaterThan(0);
+  assert.isAbove(
+    productNames.length,
+    0,
+    "At least one product should be visible after filtering by category",
+  );
 });
 
 When("the user opens the brand filters", async () => {
@@ -92,8 +100,8 @@ Then("only products from the selected brand should be shown", async () => {
     scenarioState.selectedBrandName,
   );
 
-  expect(brandIsApplied).toBe(true);
-  expect(cardsMatchBrand).toBe(true);
+  brandIsApplied.should.equal(true);
+  cardsMatchBrand.should.equal(true);
 });
 
 When("the user adjusts the price range filter", async () => {
@@ -109,15 +117,14 @@ When("the user applies a lower and upper price limit", async () => {
 
 Then("the shown products should match the selected price range", async () => {
   const visiblePrices = await homePage.getVisibleProductPrices();
+  const pricesMatchSelectedRange = visiblePrices.every(
+    (price) =>
+      price >= scenarioState.selectedMinPrice &&
+      price <= scenarioState.selectedMaxPrice,
+  );
 
-  expect(visiblePrices.length).toBeGreaterThan(0);
-  expect(
-    visiblePrices.every(
-      (price) =>
-        price >= scenarioState.selectedMinPrice &&
-        price <= scenarioState.selectedMaxPrice,
-    ),
-  ).toBe(true);
+  visiblePrices.length.should.be.greaterThan(0);
+  pricesMatchSelectedRange.should.equal(true);
 });
 
 When("the user opens the sort dropdown", async () => {
@@ -187,5 +194,5 @@ Then("a new product details page should open", async () => {
 
 Then("the selected related product name should be visible", async () => {
   const detailName = await homePage.productDetailName.getText();
-  expect(detailName).toContain(scenarioState.selectedRelatedProductName);
+  chaiExpect(detailName).to.contain(scenarioState.selectedRelatedProductName);
 });

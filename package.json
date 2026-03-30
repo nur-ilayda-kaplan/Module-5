@@ -15,6 +15,7 @@
     "@wdio/cucumber-framework": "latest",
     "@wdio/local-runner": "latest",
     "@wdio/spec-reporter": "latest",
+    "chai": "^6.2.2",
     "chromedriver": "latest",
     "expect-webdriverio": "latest",
     "webdriverio": "latest"

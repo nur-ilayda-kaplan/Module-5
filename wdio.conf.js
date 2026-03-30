@@ -40,7 +40,10 @@ exports.config = {
   reporters: ["spec"],
   // Keep feature files in ./features and step definitions in ./features/step-definitions.
   cucumberOpts: {
-    require: ["./features/step-definitions/**/*.js"],
+    require: [
+      "./features/support/chai.js",
+      "./features/step-definitions/**/*.js",
+    ],
     backtrace: false,
     dryRun: false,
     failFast: false,
