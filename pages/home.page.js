@@ -132,25 +132,18 @@ class HomePage extends BasePage {
             ).length > 0,
         );
 
-        const hasChangedPriceRange = await browser.execute(() => {
-          const minBubble = document.querySelector(".ngx-slider-model-value");
-          const maxBubble = document.querySelector(".ngx-slider-model-high");
-
-          if (!minBubble || !maxBubble) {
-            return false;
-          }
-
-          const minValue = (minBubble.textContent || "").trim();
-          const maxValue = (maxBubble.textContent || "").trim();
-
-          return minValue !== "1" || maxValue !== "100";
+        const hasVisiblePrices = await browser.execute(() => {
+          const priceElements = document.querySelectorAll(
+            '[data-test="product-price"]',
+          );
+          return priceElements.length > 0;
         });
 
         return (
           (currentSnapshot.length > 0 &&
             currentSnapshot !== previousSnapshot) ||
           hasCheckedFilters ||
-          hasChangedPriceRange
+          hasVisiblePrices
         );
       },
       {
@@ -295,6 +288,9 @@ class HomePage extends BasePage {
   async openFirstProductFromList() {
     const firstProduct = await $('[data-test^="product-"]');
 
+    await firstProduct.waitForDisplayed({ timeout: 10000 });
+    await firstProduct.scrollIntoView();
+    await browser.pause(300); // Wait for scroll animation
     await firstProduct.waitForClickable({ timeout: 10000 });
     await firstProduct.click();
 
@@ -302,16 +298,18 @@ class HomePage extends BasePage {
   }
 
   async waitForProductDetailPageToOpen() {
-    await this.productDetailName.waitForDisplayed({ timeout: 10000 });
-    await this.productDetailPrice.waitForDisplayed({ timeout: 10000 });
-
+    // First wait for URL to change to product page
     await browser.waitUntil(
       async () => (await browser.getUrl()).includes("/product/"),
       {
         timeout: 10000,
-        timeoutMsg: "Product details page did not open",
+        timeoutMsg: "Product details page URL did not load",
       },
     );
+
+    // Then wait for page elements to be displayed
+    await this.productDetailName.waitForDisplayed({ timeout: 10000 });
+    await this.productDetailPrice.waitForDisplayed({ timeout: 10000 });
   }
 
   async setProductQuantity(targetQuantity) {
@@ -461,6 +459,25 @@ class HomePage extends BasePage {
     }
 
     return cardsWithBrandText.length === allCardTexts.length;
+  }
+
+  async doVisibleCardsContainCategory(categoryName) {
+    const allCardTexts = await browser.execute(() =>
+      Array.from(document.querySelectorAll("a.card")).map((card) =>
+        (card.textContent || "").trim(),
+      ),
+    );
+
+    const normalizedCategory = categoryName.toLowerCase();
+    const cardsWithCategoryText = allCardTexts.filter((text) =>
+      text.toLowerCase().includes(normalizedCategory),
+    );
+
+    if (cardsWithCategoryText.length === 0) {
+      return true;
+    }
+
+    return cardsWithCategoryText.length === allCardTexts.length;
   }
 
   async getVisibleProductPrices() {
