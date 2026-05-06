@@ -118,39 +118,49 @@ class HomePage extends BasePage {
 
   async getProductListSnapshot() {
     const names = await this.getVisibleProductNames();
-    return names.join("|");
+    const prices = await this.getVisibleProductPrices();
+    const length = Math.max(names.length, prices.length);
+
+    return Array.from({ length }, (_, index) => {
+      const name = names[index] || "";
+      const price = prices[index] !== undefined ? prices[index] : "";
+      return `${name}:${price}`;
+    }).join("|");
   }
 
   async waitForProductListToChange(previousSnapshot) {
+    let lastSnapshot = previousSnapshot || "";
+    let stableCount = 0;
+
     await browser.waitUntil(
       async () => {
         const currentSnapshot = await this.getProductListSnapshot();
-        const hasCheckedFilters = await browser.execute(
-          () =>
-            document.querySelectorAll(
-              '[data-test^="category-"]:checked, [data-test^="brand-"]:checked',
-            ).length > 0,
-        );
 
-        const hasVisiblePrices = await browser.execute(() => {
-          const priceElements = document.querySelectorAll(
-            '[data-test="product-price"]',
-          );
-          return priceElements.length > 0;
-        });
+        if (!currentSnapshot) {
+          stableCount = 0;
+          lastSnapshot = currentSnapshot;
+          return false;
+        }
 
-        return (
-          (currentSnapshot.length > 0 &&
-            currentSnapshot !== previousSnapshot) ||
-          hasCheckedFilters ||
-          hasVisiblePrices
-        );
+        if (currentSnapshot === lastSnapshot) {
+          stableCount += 1;
+        } else {
+          stableCount = 1;
+          lastSnapshot = currentSnapshot;
+        }
+
+        return stableCount >= 2;
       },
       {
         timeout: 15000,
-        timeoutMsg: "Product list did not change",
+        interval: 300,
+        timeoutMsg: "Product list did not stabilize",
       },
     );
+  }
+
+  async waitForProductListToBeStable() {
+    await this.waitForProductListToChange();
   }
 
   async selectFirstCategory() {
@@ -258,31 +268,66 @@ class HomePage extends BasePage {
     return selectedOption;
   }
 
-  async assertProductsAreInSelectedOrder(sortValue) {
+  async getValuesForSort(sortValue) {
     const value = sortValue.toLowerCase();
 
     if (value.includes("price")) {
-      const prices = await this.getVisibleProductPrices();
-      const sortedPrices = [...prices].sort((a, b) => a - b);
-
-      if (value.includes("desc")) {
-        sortedPrices.reverse();
-      }
-
-      expect(prices).toEqual(sortedPrices);
-      return;
+      return await this.getVisibleProductPrices();
     }
 
-    if (value.includes("name")) {
-      const names = await this.getVisibleProductNames();
-      const sortedNames = [...names].sort((a, b) => a.localeCompare(b));
+    return await this.getVisibleProductNames();
+  }
 
-      if (value.includes("desc")) {
-        sortedNames.reverse();
-      }
+  async isSorted(values, sortValue) {
+    const normalized = sortValue.toLowerCase();
+    const expected = [...values];
 
-      expect(names).toEqual(sortedNames);
+    if (normalized.includes("price")) {
+      expected.sort((a, b) => a - b);
+    } else {
+      expected.sort((a, b) => a.localeCompare(b));
     }
+
+    if (normalized.includes("desc")) {
+      expected.reverse();
+    }
+
+    return (
+      values.length > 0 &&
+      values.every((value, index) => value === expected[index])
+    );
+  }
+
+  async assertProductsAreInSelectedOrder(sortValue) {
+    await this.waitForProductListToBeStable();
+
+    await browser.waitUntil(
+      async () => {
+        const values = await this.getValuesForSort(sortValue);
+        return this.isSorted(values, sortValue);
+      },
+      {
+        timeout: 15000,
+        interval: 300,
+        timeoutMsg: `Products did not settle into expected sort order for "${sortValue}"`,
+      },
+    );
+
+    const finalValues = await this.getValuesForSort(sortValue);
+    const expectedValues = [...finalValues];
+    const value = sortValue.toLowerCase();
+
+    if (value.includes("price")) {
+      expectedValues.sort((a, b) => a - b);
+    } else {
+      expectedValues.sort((a, b) => a.localeCompare(b));
+    }
+
+    if (value.includes("desc")) {
+      expectedValues.reverse();
+    }
+
+    expect(finalValues).toEqual(expectedValues);
   }
 
   async openFirstProductFromList() {
