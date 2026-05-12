@@ -10,37 +10,87 @@ const defaultFirefoxPaths = {
   linux: ["/usr/bin/firefox", "/usr/local/bin/firefox"],
 };
 
-const firefoxBinary =
-  process.env.FIREFOX_BINARY ||
-  defaultFirefoxPaths[process.platform]?.find((path) => fs.existsSync(path));
+function resolveFirefoxBinary() {
+  return (
+    process.env.FIREFOX_BINARY ||
+    defaultFirefoxPaths[process.platform]?.find((path) => fs.existsSync(path))
+  );
+}
 
-const capabilities = [
-  {
+/**
+ * Build the full W3C-style capability list (one object per browser).
+ * Do not leave holes in the array — WDIO's mapCapabilities expects every entry to be a valid object.
+ */
+function buildAllCapabilities() {
+  const list = [];
+
+  list.push({
     browserName: "chrome",
     "goog:chromeOptions": {
       args: ["--headless=new", "--disable-gpu", "--window-size=1440,900"],
     },
-  },
-];
-
-if (firefoxBinary) {
-  capabilities.push({
-    browserName: "firefox",
-    "moz:firefoxOptions": {
-      binary: firefoxBinary,
-      args: ["-headless"],
-    },
   });
+
+  const firefoxBinary = resolveFirefoxBinary();
+  if (firefoxBinary) {
+    list.push({
+      browserName: "firefox",
+      "moz:firefoxOptions": {
+        binary: firefoxBinary,
+        args: ["-headless"],
+      },
+    });
+  }
+
+  if (isMac) {
+    list.push({
+      browserName: "safari",
+      acceptInsecureCerts: true,
+      // Per-capability concurrency (replaces non-standard wdio:maxInstances on the capability object).
+      maxInstances: 1,
+    });
+  }
+
+  return list;
 }
 
-if (isMac) {
-  capabilities.push({
-    browserName: "safari",
-    // Safari does not support headless mode.
-    "wdio:maxInstances": 1,
-    acceptInsecureCerts: true,
-  });
+/**
+ * Single-browser runs must not use CLI flags like --capabilities.browserName=…
+ * (WDIO 9 can merge those into an invalid shape and trigger alwaysMatch on undefined).
+ * Use env BROWSER=chrome | firefox | safari instead.
+ */
+function pickCapabilities(all) {
+  const want = (process.env.BROWSER || "").toLowerCase().trim();
+  if (!want) {
+    return all;
+  }
+
+  const picked = all.filter(
+    (cap) =>
+      cap &&
+      typeof cap.browserName === "string" &&
+      cap.browserName.toLowerCase() === want,
+  );
+
+  if (picked.length === 0) {
+    const available = all.map((c) => c.browserName).join(", ");
+    throw new Error(
+      `[wdio.conf.js] BROWSER="${process.env.BROWSER}" matches no capability. ` +
+        `Available: ${available || "(none)"}. ` +
+        `For Firefox, install the browser or set FIREFOX_BINARY to firefox.exe.`,
+    );
+  }
+
+  if (want === "safari" && !isMac) {
+    throw new Error(
+      '[wdio.conf.js] BROWSER="safari" is only supported on macOS in this project.',
+    );
+  }
+
+  return picked;
 }
+
+const capabilities = pickCapabilities(buildAllCapabilities());
 
 exports.config = {
   runner: "local",

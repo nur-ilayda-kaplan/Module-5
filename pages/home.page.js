@@ -382,8 +382,68 @@ class HomePage extends BasePage {
     );
   }
 
+  /**
+   * ngx-toastr (#toast-container .ngx-toastr) can sit over the header in Firefox while
+   * Chrome often leaves [data-test="nav-cart"] uncovered. We wait until hit-testing at
+   * the cart shows the cart (or its children), and optionally dismiss the toast via
+   * tapToDismiss instead of relying on fixed sleeps.
+   */
+  async waitUntilCartLinkIsNotCoveredByOverlay() {
+    const cartSelector = '[data-test="nav-cart"]';
+
+    await browser.waitUntil(
+      async () => {
+        const hitTest = await browser.execute((selector) => {
+          const el = document.querySelector(selector);
+          if (!el) return { clear: false };
+
+          const rect = el.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) return { clear: false };
+
+          const midY = rect.top + rect.height / 2;
+          const sample = (px, py) => {
+            const top = document.elementFromPoint(px, py);
+            return Boolean(top && (el === top || el.contains(top)));
+          };
+
+          const xs = [
+            rect.left + rect.width * 0.5,
+            rect.left + rect.width * 0.88,
+            rect.left + Math.max(4, rect.width * 0.12),
+          ];
+
+          if (xs.some((x) => sample(x, midY))) {
+            return { clear: true };
+          }
+
+          const cx = rect.left + rect.width * 0.5;
+          const cy = midY;
+          const hit = document.elementFromPoint(cx, cy);
+          const toast = hit && hit.closest && hit.closest("#toast-container .ngx-toastr");
+          if (toast) {
+            toast.click();
+          }
+
+          return { clear: false };
+        }, cartSelector);
+
+        return hitTest.clear === true;
+      },
+      {
+        timeout: 15000,
+        interval: 200,
+        timeoutMsg:
+          "Cart link stayed covered by an overlay (e.g. success toast)",
+      },
+    );
+  }
+
   async openCart() {
-    await this.cartLink.waitForClickable({ timeout: 10000 });
+    await this.cartLink.waitForExist({ timeout: 10000 });
+    await this.cartLink.waitForDisplayed({ timeout: 10000 });
+    await this.cartLink.scrollIntoView({ block: "nearest", inline: "nearest" });
+    await this.waitUntilCartLinkIsNotCoveredByOverlay();
+
     await this.cartLink.click();
 
     await browser.waitUntil(

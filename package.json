@@ -6,9 +6,9 @@
   "scripts": {
     "test": "wdio run ./wdio.conf.js",
     "test:smoke": "wdio run ./wdio.conf.js --cucumberOpts.tagExpression=@smoke",
-    "test:chrome": "wdio run ./wdio.conf.js --capabilities.browserName=chrome",
-    "test:firefox": "wdio run ./wdio.conf.js --capabilities.browserName=firefox",
-    "test:safari": "wdio run ./wdio.conf.js --capabilities.browserName=safari"
+    "test:chrome": "cross-env BROWSER=chrome wdio run ./wdio.conf.js",
+    "test:firefox": "cross-env BROWSER=firefox wdio run ./wdio.conf.js",
+    "test:safari": "cross-env BROWSER=safari wdio run ./wdio.conf.js"
   },
   "devDependencies": {
     "@wdio/cli": "^9.27.0",
@@ -17,6 +17,7 @@
     "@wdio/spec-reporter": "^9.27.0",
     "chai": "^6.2.2",
     "chromedriver": "latest",
+    "cross-env": "^7.0.3",
     "expect-webdriverio": "latest",
     "webdriverio": "^9.27.0"
   },
